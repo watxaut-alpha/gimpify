@@ -1,11 +1,7 @@
-# Remove token from Git
-src/bot/auth.py
-src/search/auth.py
-src/gimp/faces.json
-src/gimp/backgrounds.json
 
 .idea/
 __pycache__/
+resources
 *.py[cod]
 *$py.class
 
