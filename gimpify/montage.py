@@ -225,7 +225,7 @@ def create_montage(im_background: [dict, str], json_faces: dict, only_face: bool
     return im_base
 
 
-def create_random_montage(montage_folder_path: str, b_path: str, f_path: str, only_face: bool) -> None:
+def create_random_montage(montage_folder_path: str, b_path: str, f_path: str, only_face: bool) -> str:
     """
     Creates and saves the montage from background and faces folders. If folders are provided, it will create a file
     'backgrounds.json' or 'faces.json' inside the folders for faster loading if used repeatedly. If new images are
@@ -237,7 +237,7 @@ def create_random_montage(montage_folder_path: str, b_path: str, f_path: str, on
     :param f_path: folder face path or json with the face's params. If folder provided, the 'faces.json' file
         will be created inside the faces' folder
     :param only_face: Whether to crop the hair and chin of the face or not
-    :return: None
+    :return: str with montage file path
     """
 
     # if a json is provided, use the json. If a folder is provided, look for a json inside. If no json inside, create it
@@ -265,10 +265,10 @@ def create_random_montage(montage_folder_path: str, b_path: str, f_path: str, on
         raise
 
     logger.info(f"Montage created and saved in '{montage_file_path}'")
-    return
+    return str(montage_file_path)
 
 
-def create_montage_for_background(montage_folder_path: str, im_b_path: str, f_path: str, only_face: bool) -> None:
+def create_montage_for_background(montage_folder_path: str, im_b_path: str, f_path: str, only_face: bool) -> str:
     """
     Creates and saves the montage from a designed background. If a folder is provided for faces, it will create a file
     'faces.json' inside the folder for faster loading if used repeatedly. If new images are
@@ -279,7 +279,7 @@ def create_montage_for_background(montage_folder_path: str, im_b_path: str, f_pa
     :param f_path: folder face path or json with the face's params. If folder provided, the 'faces.json' file
         will be created inside the faces' folder
     :param only_face: Whether to crop the hair and chin of the face or not
-    :return: None
+    :return: str with montage path
     """
     json_f_path = get_or_create_params_json(f_path, is_background=False)
     f_faces = open(json_f_path, "r")
@@ -295,4 +295,4 @@ def create_montage_for_background(montage_folder_path: str, im_b_path: str, f_pa
         raise
 
     logger.info(f"Montage created and saved in '{montage_file_path}'")
-    return
+    return str(montage_file_path)

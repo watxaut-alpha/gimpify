@@ -16,7 +16,6 @@ setuptools.setup(
     url="https://github.com/watxaut/gimpify",
     packages=setuptools.find_packages(where="."),
     keywords="face recognition montage",
-    # py_modules=['gimpify', 'gimpify.montages'],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python :: 3.7",
