@@ -2,79 +2,126 @@ import json
 import logging
 import os
 import random
+import uuid
+from pathlib import Path
 
 import face_recognition
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+ACCEPTED_IMG_EXTENSIONS = ("png", "jpeg", "jpg")
 
-def create_face_params(json_save_path, imgs_face_path):
+
+def get_face_params(im_path: str):
     """
-    Loads all faces in 'background_path', calculates their bounding box and puts the bb and the path into a list
-    :return: json file path of the params
+    From an image path, return the list of faces in the image
+    :param im_path: str image path
+    :return: return list of list=[f_upper, f_right, f_lower, f_left] for each face found
     """
+    im = face_recognition.load_image_file(im_path)
+    l_faces = face_recognition.face_locations(im)
+    logger.debug(f"Found {len(l_faces)} faces in image {im_path}")
+    return l_faces
 
-    l_img = []
-    l_name_img = os.listdir(imgs_face_path)
-    for s_name in l_name_img:
 
-        # get rid of tests and .md files
-        if not s_name.startswith("_") and not s_name.endswith(".md"):
-            im_face_path = "{}/{}".format(imgs_face_path, s_name)
-            im_face = face_recognition.load_image_file(im_face_path)
-            l_faces = face_recognition.face_locations(im_face)
-
-            # if a face is detected (should only be one)
-            if l_faces:
-                t_face = l_faces[0]  # only one face
-                l_img.append({"rel_path": im_face_path, "t_face": t_face})
+def get_or_create_params_json(path: str, is_background: bool):
+    """
+    If path endswith .json returns the json. If the path is a folder and inside that folder there is already a
+    faces.json or backgrounds.json, then returns this path, else creates the json for the path and returns the path
+    :param path: str. json path or folder with images path
+    :param is_background: bool. If the images are either backgrounds or faces
+    :return: str with json path
+    """
+    path = Path(path)
+    if path.endswith(".json"):
+        return path
+    elif os.path.isdir(path):
+        l_files = os.listdir(path)
+        if is_background:
+            json_save_path = Path(f"{path}/backgrounds.json")
+            if "backgrounds.json" in l_files:
+                pass
             else:
-                logger.info(
-                    "Image '{}' has no face :( Try to make the frame a little bigger without resizing the face".format(
-                        s_name
-                    )
-                )
-
-    # save list of params
-    json_img = json.dumps(l_img)
-
-    f = open(json_save_path, "w")
-    f.write(json_img)
-    f.close()
-    return json_save_path
-
-
-def create_background_params(json_save_path, background_path):
-    """
-    Loads all backgrounds in 'resources/in/backgrounds', gets all faces, calculates their bounding box and puts the bbs
-    and the path into a list.
-    :return: file path of the json file
-    """
-
-    l_img = []
-    l_name_img = os.listdir(background_path)
-    for s_name in l_name_img:
-
-        # get rid of tests and .md files
-        if not s_name.startswith("_") and not s_name.endswith(".md"):
-            im_background_path = "{}/{}".format(background_path, s_name)
-            im_background = face_recognition.load_image_file(im_background_path)
-            l_faces = face_recognition.face_locations(im_background)
-
-            # if a face is detected, more than one
-            if l_faces:
-                l_img.append({"rel_path": im_background_path, "l_faces": l_faces})
+                create_background_json(path, json_save_path)
+        else:
+            json_save_path = Path(f"{path}/faces.json")
+            if "faces.json" in l_files:
+                pass
             else:
-                logger.info("No face found in image: '{}' :(".format(s_name))
+                create_face_json(path, json_save_path)
+        return json_save_path
+    else:
+        raise Exception(f"Provided path: '{path}' is neither a json or a folder")
 
-    # save list of params
-    json_img = json.dumps(l_img)
 
-    f = open(json_save_path, "w")
-    f.write(json_img)
-    f.close()
-    return json_save_path
+def get_folder_img_params(folder_path: str, is_background: bool):
+    """
+    Read each image in 'folder_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the face(s)
+    parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
+    :param folder_path: path to folder with the images to get the faces
+    :param is_background: bool. If is_background is True, the algorithm will store ALL faces found in the image. Else
+        it will save one face (because for face images only one face must appear on the image)
+    :return: list with dictionaries {path, face_params} for each image on the folder 'face_images_path'
+    """
+
+    l_face_params = []
+    folder_images: list = os.listdir(folder_path)
+    for s_filename in folder_images:
+        if s_filename.endswith(ACCEPTED_IMG_EXTENSIONS):
+            im_path = Path(f"{folder_path}/{s_filename}")
+            l_faces = get_face_params(im_path)
+
+            if not is_background:  # only 1 face in each images
+                if len(l_faces) == 1:
+                    t_face = l_faces[0]  # only one face
+                    l_face_params.append({"path": im_path, "t_face": t_face})
+                elif len(l_faces) > 1:
+                    logger.warning(f"Found more than one face in '{s_filename}'. Skipping face image")
+                else:
+                    logger.warning(f"No face found in '{s_filename}'. Try to make the frame a little bigger")
+            else:  # background
+                if l_faces:  # if there is at least one face
+                    l_face_params.append({"path": im_path, "l_faces": l_faces})
+                else:
+                    logger.warning(f"No faces found in '{s_filename}' background")
+        else:
+            s_log = (
+                f"Extensions' face image file {s_filename} not accepted. Accepted formats: {ACCEPTED_IMG_EXTENSIONS}"
+            )
+            logger.info(s_log)
+
+    return l_face_params
+
+
+def create_face_json(face_images_path, json_save_path):
+    """
+    Read each image in 'face_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the face
+    parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
+    :param face_images_path: path to folder with the faces
+    :param json_save_path: save path for the json with the parameters
+    :return: None
+    """
+    face_params: list = get_folder_img_params(folder_path=face_images_path, is_background=False)
+    json_face_params = json.dumps(face_params)
+
+    with open(json_save_path, "w") as f:
+        f.write(json_face_params)
+
+
+def create_background_json(background_images_path, json_save_path):
+    """
+    Read each image in 'background_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the
+    faces parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
+    :param background_images_path: path to folder with the background images
+    :param json_save_path: save path for the json with the parameters
+    :return: None
+    """
+    background_params: list = get_folder_img_params(folder_path=background_images_path, is_background=True)
+    json_background_params = json.dumps(background_params)
+
+    with open(json_save_path, "w") as f:
+        f.write(json_background_params)
 
 
 def check_return_png_path(im_path, root_folder):
@@ -86,10 +133,11 @@ def check_return_png_path(im_path, root_folder):
     :return:
     """
     if not im_path.endswith(".png"):
+
         im_name = im_path.replace("\\", "/").split("/")[-1].split(".")[0]
 
         im_jpg = Image.open(im_path)
-        im_path = "{}/{}.png".format(root_folder, im_name)
+        im_path = Path(f"{root_folder}/{im_name}.png")
         try:
             im_jpg.save(im_path)
             return im_path
@@ -99,40 +147,36 @@ def check_return_png_path(im_path, root_folder):
         return im_path
 
 
-def manelitify(background_img, l_img_faces, only_face, root_folder):
+def create_montage(im_background: [dict, str], json_faces: dict, only_face: bool):
     """
-    The function that makes the magic. Gets an image background path, the list of faces {bb, path} and crops, resizes
-    and pastes the faces into the image.
-    :param background_img: background image, can either be a path or a dict of list_of_faces, path_to_background_img ->
-    {rel_path, l_faces}
-    :param l_img_faces: list of dictionaries {bb, path} of each face
-    :param only_face: param that crops (or not) the face
-    :param root_folder:
-    :return: the PIL background image
+    Creates image with the montage. im_background can be an image path or a json dict. json_faces has to be a json
+    loaded of the faces folder. only_face param will crop only the face or leave the hair and chin if False
+    :param im_background: str if is an image path or dict if it comes from a json read from a background's folder
+    :param json_faces: dict read from a json from the faces folder
+    :param only_face: bool. Will leave hair and chin if False, else will crop the image
+    :return: Image.Image instance from PIL with the montage
     """
-
-    if type(background_img) is dict:
-        im_path = background_img["rel_path"]
-        im_path_new = check_return_png_path(im_path, root_folder)
-
-        l_faces = background_img["l_faces"]
+    if type(im_background) is dict:
+        im_path = im_background["path"]
+        l_background_faces = im_background["l_faces"]
+    elif type(im_background) is str:
+        im_path = im_background
+        l_background_faces = get_face_params(im_background)
     else:
-        im_path = background_img
+        raise Exception("im_background has to be one of [dict, str]")
 
-        im_path_new = check_return_png_path(im_path, root_folder)  # check background image png format
-        im_base = face_recognition.load_image_file(im_path_new)  # load face_recognition PIL background image
-        l_faces = face_recognition.face_locations(im_base)  # get tuple with face locations
-        logger.info(f"Found '{len(l_faces)}' faces")
+    # load base (background) image
+    im_base: Image.Image = Image.open(im_path)
 
-    # reload images again because yes (I was having problems with that method so I opened it again using PIL)
-    im_base = Image.open(im_path_new)
+    # load individual face params from json
+    l_json_faces = json.load(json_faces)
 
     f_factor = 1.1  # multiplies width and creates the width of the new face
 
     # face with this method gets pasted to high. The greater it is, the lower the face will be pasted
     f_moderate_height = 0.15
 
-    for l_face in l_faces:
+    for l_face in l_background_faces:
 
         # get image props
         upper, right, lower, left = l_face
@@ -140,11 +184,11 @@ def manelitify(background_img, l_img_faces, only_face, root_folder):
         height = lower - upper
 
         # get a random face from the list of faces
-        i = random.randint(0, len(l_img_faces) - 1)
-        d_face = l_img_faces[i]
+        i = random.randint(0, len(l_json_faces) - 1)
+        d_face = l_json_faces[i]
 
         # load face
-        im_face = Image.open(d_face["rel_path"])
+        im_face = Image.open(d_face["path"])
 
         # get face props
         f_upper, f_right, f_lower, f_left = d_face["t_face"]
@@ -182,3 +226,74 @@ def manelitify(background_img, l_img_faces, only_face, root_folder):
             im_base.paste(im_face_aux, (left, upper), im_face_aux)
 
     return im_base
+
+
+def create_random_montage(montage_folder_path: str, b_path: str, f_path: str, only_face: bool):
+    """
+    Creates and saves the montage from background and faces folders. If folders are provided, it will create a file
+    'backgrounds.json' or 'faces.json' inside the folders for faster loading if used repeatedly. If new images are
+    introduced in the folders, delete the json and the next time 'create_random_montage' is called, it will be
+    created automatically.
+    :param montage_folder_path: folder to save the montage
+    :param b_path: folder background path or json with the face params. If folder provided, the 'backgrounds.json' file
+        will be created inside the backgrounds' folder
+    :param f_path: folder face path or json with the face's params. If folder provided, the 'faces.json' file
+        will be created inside the faces' folder
+    :param only_face: Whether to crop the hair and chin of the face or not
+    :return: None
+    """
+
+    # if a json is provided, use the json. If a folder is provided, look for a json inside. If no json inside, create it
+    json_b_path = get_or_create_params_json(b_path, is_background=True)
+    json_f_path = get_or_create_params_json(f_path, is_background=False)
+
+    # read json's from backgrounds and faces
+    f_backgrounds = open(json_b_path, "r")
+    json_backgrounds: dict = json.load(f_backgrounds)
+    f_backgrounds.close()
+    f_faces = open(json_f_path, "r")
+    json_faces: dict = json.load(f_faces)
+    f_faces.close()
+
+    # get random background
+    i = random.randint(0, len(json_backgrounds) - 1)
+    im_background = json_backgrounds[i]
+
+    im_montage = create_montage(im_background, json_faces, only_face)  # creates the montage
+    montage_file_path = Path(f"{montage_folder_path}/montage_{uuid.uuid4().hex[:10]}.png")
+    try:
+        im_montage.save(montage_file_path)
+    except IOError:
+        logger.error("Montage created but error while saving montage")
+        raise
+
+    logger.info(f"Montage created and saved in '{montage_file_path}'")
+
+
+def create_montage_for_background(montage_folder_path: str, im_b_path: str, f_path: str, only_face: bool):
+    """
+    Creates and saves the montage from a designed background. If a folder is provided for faces, it will create a file
+    'faces.json' inside the folder for faster loading if used repeatedly. If new images are
+    introduced in the faces' folder, delete the json and the next time 'create_montage_for_background' is called,
+    it will be created automatically.
+    :param montage_folder_path: folder to save the montage
+    :param im_b_path: str with the background image path
+    :param f_path: folder face path or json with the face's params. If folder provided, the 'faces.json' file
+        will be created inside the faces' folder
+    :param only_face: Whether to crop the hair and chin of the face or not
+    :return: None
+    """
+    json_f_path = get_or_create_params_json(f_path, is_background=False)
+    f_faces = open(json_f_path, "r")
+    json_faces: dict = json.load(f_faces)
+    f_faces.close()
+
+    im_montage = create_montage(im_b_path, json_faces, only_face)  # creates the montage
+    montage_file_path = Path(f"{montage_folder_path}/montage_{uuid.uuid4().hex[:10]}.png")
+    try:
+        im_montage.save(montage_file_path)
+    except IOError:
+        logger.error("Montage created but error while saving montage")
+        raise
+
+    logger.info(f"Montage created and saved in '{montage_file_path}'")
