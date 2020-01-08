@@ -27,7 +27,7 @@ setuptools.setup(
     url="https://github.com/watxaut/gimpify",
     # package_dir={'': 'gimpify'},
     packages=setuptools.find_packages(
-        where=".", include=["gimpify", "gimpify.*"], exclude=["*.tests", "*.tests.*", "tests.*", "tests/"]
+        where=".", include=["gimpify", "gimpify.*"], exclude=["*.tests", "*.tests.*", "tests.*", "tests"]
     ),
     keywords="face recognition montage",
     classifiers=[
