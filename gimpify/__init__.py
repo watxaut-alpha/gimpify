@@ -7,4 +7,4 @@ from .montage import (
     create_background_json,
 )
 
-__version__ = "0.0.1.a2"
+__version__ = "0.0.1a3"

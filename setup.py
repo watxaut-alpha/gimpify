@@ -1,20 +1,34 @@
 import setuptools
-
-from gimpify.__init__ import __version__
+from pathlib import Path
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
+# get version, the cool way
+f_version = open(Path("gimpify/__init__.py"))
+for line in f_version.readlines():
+    if "__version__" in line:
+        version = line.strip().replace(" ", "").replace("__version__=", "").replace('"', "")
+        print(version)
+        break
+else:
+    raise Exception("__version__ not found!")
+f_version.close()
+
 setuptools.setup(
     name="gimpify-watxaut",
-    version=__version__,
+    version=version,
     author="watxaut",
     author_email="watxaut@gmail.com",
     description="Just a package to create automatic face image montages",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/watxaut/gimpify",
-    packages=setuptools.find_packages(where="."),
+    # package_dir={'': 'gimpify'},
+    packages=setuptools.find_packages(
+        where=".", include=["gimpify", "gimpify.*"], exclude=["*.tests", "*.tests.*", "tests.*", "tests/"]
+    ),
     keywords="face recognition montage",
     classifiers=[
         "Development Status :: 3 - Alpha",
