@@ -124,29 +124,6 @@ def create_background_json(background_images_path, json_save_path) -> None:
         f.write(json_background_params)
 
 
-def check_return_png_path(im_path, root_folder):
-    """
-    Checks the image is in png and if not, converts it to png, saves it in the same folder and returns the new im path.
-    If it is, returns the same path
-    :param im_path:
-    :param root_folder:
-    :return:
-    """
-    if not im_path.endswith(".png"):
-
-        im_name = im_path.replace("\\", "/").split("/")[-1].split(".")[0]
-
-        im_jpg = Image.open(im_path)
-        im_path = Path(f"{root_folder}/{im_name}.png")
-        try:
-            im_jpg.save(im_path)
-            return im_path
-        except IOError:
-            raise
-    else:
-        return im_path
-
-
 def create_montage(im_background: [dict, str], json_faces: dict, only_face: bool) -> Image.Image:
     """
     Creates image with the montage. im_background can be an image path or a json dict. json_faces has to be a json
