@@ -25,11 +25,19 @@ and another with 'faces'. When I talk about backgrounds I mean
 photographs with people AND faces visible. In fact, only the faces are
 needed, no need to show any other part of the body. One example of
 background:
-<img src="resources/test/backgrounds/theoffice.png" height="300" title="This is a background">
+
+<img src="resources/test/backgrounds/theoffice.png" height="400" title="This is a background">
 
 When I talk about faces, I mean PNG images with only the face visible, 
 like this one:
+
 <img src="resources/test/faces/boy.png" height="300" title="This is a face">
+
+And the final result should be close to this one:
+
+<img src="resources/screenshots/montage.png" height="400" title="oh le montage">
+
+As you see, the math is a little off, I know it.
 
 When you have this two folders populated, you are ready to start the
 second phase.
