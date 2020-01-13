@@ -25,11 +25,11 @@ and another with 'faces'. When I talk about backgrounds I mean
 photographs with people AND faces visible. In fact, only the faces are
 needed, no need to show any other part of the body. One example of
 background:
-![This is a background](resources/test/backgrounds/theoffice.png =x300)
+![This is a background](resources/test/backgrounds/theoffice.png | height=300)
 
 When I talk about faces, I mean PNG images with only the face visible, 
 like this one:
-![This is a face](resources/test/faces/boy.png =x300)
+![This is a face](resources/test/faces/boy.png | height=300)
 
 When you have this two folders populated, you are ready to start the
 second phase.
