@@ -4,8 +4,8 @@ This repository is intended for creating automatic montages: it pastes
 faces onto others faces. That's about it.
 
 ## DISCLAIMER
-- The aim of this package is not to make it beautiful, it is to make
-it a nightmare
+- The aim of this package is not to make a beautiful montage, 
+it is to make it look wrong and funny.
 - I know there is still room for improvement on the maths for pasting 
 images. I will work on it when I have time. Help appreciated! 
 
