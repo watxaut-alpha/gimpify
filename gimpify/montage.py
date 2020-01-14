@@ -5,24 +5,11 @@ import random
 import uuid
 from pathlib import Path, PosixPath
 
-import face_recognition
 from PIL import Image
 
+import gimpify.helpers as helpers
+
 logger = logging.getLogger(__name__)
-
-ACCEPTED_IMG_EXTENSIONS = ("png", "jpeg", "jpg")
-
-
-def get_face_params(im_path: str) -> list:
-    """
-    From an image path, return the list of faces in the image
-    :param im_path: str image path
-    :return: return list of list=[f_upper, f_right, f_lower, f_left] for each face found
-    """
-    im = face_recognition.load_image_file(im_path)
-    l_faces = face_recognition.face_locations(im)
-    logger.debug(f"Found {len(l_faces)} faces in image {im_path}")
-    return l_faces
 
 
 def get_or_create_params_json(path: str, is_background: bool) -> str:
@@ -43,81 +30,66 @@ def get_or_create_params_json(path: str, is_background: bool) -> str:
             if "backgrounds.json" in l_files:
                 pass
             else:
-                create_background_json(path, json_save_path)
+                create_background_json(path, json_save_path, just_update=True)
         else:
             json_save_path = Path(f"{path}/faces.json")
             if "faces.json" in l_files:
                 pass
             else:
-                create_face_json(path, json_save_path)
+                create_face_json(path, json_save_path, just_update=True)
         return json_save_path
     else:
         raise Exception(f"Provided path: '{path}' is neither a json or a folder")
 
 
-def get_folder_img_params(folder_path: str, is_background: bool) -> list:
-    """
-    Read each image in 'folder_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the face(s)
-    parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
-    :param folder_path: path to folder with the images to get the faces
-    :param is_background: bool. If is_background is True, the algorithm will store ALL faces found in the image. Else
-        it will save one face (because for face images only one face must appear on the image)
-    :return: list with dictionaries {path, face_params} for each image on the folder 'face_images_path'
-    """
-
-    l_face_params = []
-    folder_images: list = os.listdir(folder_path)
-    for s_filename in folder_images:
-        if s_filename.endswith(ACCEPTED_IMG_EXTENSIONS):
-            im_path = Path(f"{folder_path}/{s_filename}")
-            l_faces = get_face_params(im_path)
-
-            if not is_background:  # only 1 face in each images
-                if len(l_faces) == 1:
-                    t_face = l_faces[0]  # only one face
-                    l_face_params.append({"path": str(im_path), "t_face": t_face})
-                elif len(l_faces) > 1:
-                    logger.warning(f"Found more than one face in '{s_filename}'. Skipping face image")
-                else:
-                    logger.warning(f"No face found in '{s_filename}'. Try to make the frame a little bigger")
-            else:  # background
-                if l_faces:  # if there is at least one face
-                    l_face_params.append({"path": str(im_path), "l_faces": l_faces})
-                else:
-                    logger.warning(f"No faces found in '{s_filename}' background")
-        else:
-            s_log = (
-                f"Extensions' face image file {s_filename} not accepted. Accepted formats: {ACCEPTED_IMG_EXTENSIONS}"
-            )
-            logger.info(s_log)
-
-    return l_face_params
-
-
-def create_face_json(face_images_path, json_save_path) -> None:
+def create_face_json(face_images_path, json_save_path, just_update=True) -> None:
     """
     Read each image in 'face_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the face
     parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
-    :param face_images_path: path to folder with the faces
-    :param json_save_path: save path for the json with the parameters
+    :param face_images_path: {str} path to folder with the faces
+    :param json_save_path: {str} save path for the json with the parameters
+    :param just_update: {bool, optional} if True, it will only get the new images in the folder and delete the ones that
+        do not appear. *The ones present will not be updated for faster processing*
     :return: None
     """
-    face_params: list = get_folder_img_params(folder_path=face_images_path, is_background=False)
+
+    # if the json file exists (we created it before) and we just want to update
+    if os.path.isfile(json_save_path) and just_update:
+        with open(json_save_path, "r") as f:
+            json_faces = json.load(f)
+    else:
+        json_faces = []
+
+    face_params: list = helpers.get_folder_img_params(
+        folder_path=face_images_path, is_background=False, old_json=json_faces
+    )
     json_face_params = json.dumps(face_params)
 
     with open(json_save_path, "w") as f:
         f.write(json_face_params)
 
 
-def create_background_json(background_images_path, json_save_path) -> None:
+def create_background_json(background_images_path, json_save_path, just_update=True) -> None:
     """
     Read each image in 'background_images_path' with extension 'ACCEPTED_IMG_EXTENSIONS' and creates a json with the
     faces parameters (list=[f_upper, f_right, f_lower, f_left]) and it's path
     :param background_images_path: path to folder with the background images
     :param json_save_path: save path for the json with the parameters
+    :param just_update: {bool, optional} if True, it will only get the new images in the folder and delete the ones that
+    do not appear. *The ones present will not be updated for faster processing*
     :return: None
     """
-    background_params: list = get_folder_img_params(folder_path=background_images_path, is_background=True)
+
+    # if the json file exists (we created it before) and we just want to update
+    if os.path.isfile(json_save_path) and just_update:
+        with open(json_save_path, "r") as f:
+            json_faces = json.load(f)
+    else:
+        json_faces = []
+
+    background_params: list = helpers.get_folder_img_params(
+        folder_path=background_images_path, is_background=True, old_json=json_faces
+    )
     json_background_params = json.dumps(background_params)
 
     with open(json_save_path, "w") as f:
@@ -138,7 +110,7 @@ def create_montage(im_background: [dict, str], json_faces: dict, only_face: bool
         l_background_faces = im_background["l_faces"]
     elif type(im_background) in [str, PosixPath]:
         im_path = str(im_background)
-        l_background_faces = get_face_params(im_background)
+        l_background_faces = helpers.get_face_params(im_background)
     else:
         raise Exception("im_background has to be one of [dict, str]")
 
