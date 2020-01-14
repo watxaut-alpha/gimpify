@@ -38,13 +38,13 @@ def get_folder_img_params(folder_path: str, is_background: bool, old_json: list)
     old_paths = {face["path"]: face["t_face"] for face in old_json}
 
     # remove images with incorrect extensions
-    folder_paths = [Path(f"{folder_path}/{filename}") for filename in os.listdir(folder_path)]
-    for img_path in folder_path:
+    img_folder_paths = [Path(f"{folder_path}/{filename}") for filename in os.listdir(folder_path)]
+    for img_path in img_folder_paths:
         if not str(img_path).endswith(ACCEPTED_IMG_EXTENSIONS):
             img_path: Path  # cast typing because it is stuck with str instead of Path
 
             # erase from folder paths
-            folder_paths.remove(img_path)
+            img_folder_paths.remove(img_path)
             s_log = (
                 f"Extensions' face image file {img_path.name} not accepted. Accepted formats: {ACCEPTED_IMG_EXTENSIONS}"
             )
@@ -54,11 +54,11 @@ def get_folder_img_params(folder_path: str, is_background: bool, old_json: list)
             l_params.append(d_params)
 
             # and remove the image because we don't want it to process it again
-            folder_paths.remove(img_path)
+            img_folder_paths.remove(img_path)
         else:  # new image and accepted format
             continue
 
-    for im_path in folder_paths:
+    for im_path in img_folder_paths:
         l_faces = get_face_params(im_path)
         if not is_background:  # only 1 face in each images
             if len(l_faces) == 1:
